@@ -37,7 +37,7 @@
         <div class="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold">📍 Auckland Store Visit Guide</h1>
-                <p class="text-indigo-200 text-sm mt-1">Mobile guide with GPS coordinate &amp; auto-converting Google Drive link support</p>
+                <p class="text-indigo-200 text-sm mt-1">Cloud synced with Google Sheets</p>
             </div>
             <!-- Action Buttons & Search -->
             <div class="flex flex-wrap sm:flex-row gap-2 w-full md:w-auto items-center">
@@ -76,7 +76,7 @@
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <h2 id="modalTitle" class="text-xl font-bold text-slate-900 mb-4">Edit Store Information</h2>
             <form id="storeForm" onsubmit="handleFormSubmit(event)">
-                <input type="hidden" id="editIndex" value="13">
+                <input type="hidden" id="editIndex" value="-1">
                 <div class="mb-4">
                     <label class="block text-xs font-semibold text-slate-600 mb-1">Select Brand</label>
                     <select id="formBrand" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -131,13 +131,23 @@
         </div>
     </div>
 
+    <!-- Loading Indicator -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs flex items-center justify-center z-50 hidden">
+        <div class="bg-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-3">
+            <div class="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+            <span class="text-sm font-medium text-slate-700">Syncing with Google Sheets...</span>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 py-6 text-center text-slate-500 text-sm">
-        <p>© 2026 Auckland Store Guide. Data is securely stored in your browser.</p>
+        <p>© 2026 Auckland Store Guide. Synced with Google Sheets.</p>
     </footer>
 
     <!-- JavaScript Logic -->
     <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzWR2h5-4PCt1oTwOvo1f6ba_nqcdBqbENljPyVJKkifR1A_vdSBn1W6tVgMmksLy_q/exec";
+
         const defaultStores = [
             { brand: "JB Hi-Fi", name: "Albany", address: "-36.72762792656039, 174.70722451771036", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-amber-100 text-amber-800" },
             { brand: "Noel Leeming", name: "Albany", address: "Albany Supa Centa, Don McKinnon Drive", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-blue-100 text-blue-700" },
@@ -174,7 +184,7 @@
             { brand: "Noel Leeming", name: "Royal Oak", address: "-36.91225788626238, 174.77199167218401", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-blue-100 text-blue-700" },
             { brand: "Noel Leeming", name: "Silverdale", address: "-36.61579176726785, 174.6795988281594", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-blue-100 text-blue-700" },
             { brand: "PB Tech", name: "St lukes", address: "7A Wagener Place, Mt Albert", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-emerald-100 text-emerald-700" },
-            { brand: "Noel Leeming", name: "St Lukes", address: "-36.88448002952264, 174.73055078864618", contactPerson: "", phone: "021821772", note: "", mapImage: "", badgeBg: "bg-blue-100 text-blue-700" },
+            { brand: "Noel Leeming", name: "St Lukes", address: "-36.88448002952264, 174.73055078864618", contactPerson: "", phone: "021821772", note: "", mapImage: "https://drive.google.com/file/d/15R0IZOIYA1nEUNhn0k2FL5WayXiaCJ8O/view?usp=drive_link", badgeBg: "bg-blue-100 text-blue-700" },
             { brand: "The Warehouse", name: "St Lukes", address: "Westfield St Lukes, 80 St Lukes Road", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-rose-100 text-rose-700" },
             { brand: "Noel Leeming", name: "Sylvia Park", address: "-36.91816418802106, 174.84083674064058", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-blue-100 text-blue-700" },
             { brand: "The Warehouse", name: "Sylvia Park", address: "-36.91831644102825, 174.84075090995444", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-rose-100 text-rose-700" },
@@ -190,7 +200,7 @@
             { brand: "PB Tech", name: "Westgate", address: "7-9 Westgate Drive, Westgate", contactPerson: "", phone: "", note: "", mapImage: "", badgeBg: "bg-emerald-100 text-emerald-700" }
         ];
 
-        let stores = JSON.parse(localStorage.getItem('auckland_stores_v5')) || defaultStores;
+        let stores = [];
         let currentBrand = 'all';
         let searchQuery = '';
 
@@ -220,6 +230,56 @@
                 return ['https://lh3.googleusercontent.com/d/', inputUrl].join('');
             }
             return inputUrl;
+        }
+
+        async function initApp() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            if (WEB_APP_URL && WEB_APP_URL !== "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
+                try {
+                    const response = await fetch(WEB_APP_URL);
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        stores = data;
+                    } else {
+                        stores = [...defaultStores];
+                        await syncToCloud();
+                    }
+                } catch (e) {
+                    console.error("Failed to load from cloud, using default.", e);
+                    stores = [...defaultStores];
+                }
+            } else {
+                stores = [...defaultStores];
+            }
+
+            overlay.classList.remove('flex');
+            overlay.classList.add('hidden');
+            renderStores();
+        }
+
+        async function syncToCloud() {
+            if (!WEB_APP_URL || WEB_APP_URL === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") return;
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(stores)
+                });
+            } catch (e) {
+                console.error("Failed to sync to cloud", e);
+                alert("Cloud sync failed. Check console.");
+            }
+
+            overlay.classList.remove('flex');
+            overlay.classList.add('hidden');
         }
 
         function renderStores() {
@@ -307,14 +367,14 @@
             renderStores();
         }
 
-        // 검색창에 'reset' 입력 시 초기화 기능
-        document.getElementById('searchInput').addEventListener('input', (e) => {
+        // 검색창에 'reset' 입력 시 구글 시트 초기화 기능
+        document.getElementById('searchInput').addEventListener('input', async (e) => {
             const value = e.target.value;
             if (value.trim().toLowerCase() === 'reset') {
-                if (confirm('Are you sure you want to reset all changes and restore the default store list?')) {
+                if (confirm('Are you sure you want to reset all stores and restore defaults to Google Sheets?')) {
                     stores = [...defaultStores];
-                    localStorage.setItem('auckland_stores_v5', JSON.stringify(stores));
-                    alert('Restored to default store list.');
+                    await syncToCloud();
+                    alert('Restored and synced to Google Sheets.');
                 }
                 e.target.value = '';
                 searchQuery = '';
@@ -359,7 +419,7 @@
             document.getElementById('storeModal').classList.add('hidden');
         }
 
-        function handleFormSubmit(event) {
+        async function handleFormSubmit(event) {
             event.preventDefault();
             const index = parseInt(document.getElementById('editIndex').value);
             const brand = document.getElementById('formBrand').value;
@@ -372,24 +432,23 @@
             const mapImage = formatMapImageUrl(rawMapImage);
             const badgeBg = getBadgeColor(brand);
 
-            saveStoreData(index, { brand, name, address, contactPerson, phone, note, mapImage, badgeBg });
-        }
+            const storeData = { brand, name, address, contactPerson, phone, note, mapImage, badgeBg };
 
-        function saveStoreData(index, storeData) {
             if (index === -1) {
                 stores.unshift(storeData);
             } else {
                 stores[index] = storeData;
             }
-            localStorage.setItem('auckland_stores_v5', JSON.stringify(stores));
+
             closeModal();
+            await syncToCloud();
             renderStores();
         }
 
-        function deleteStore(index) {
+        async function deleteStore(index) {
             if (confirm('Are you sure you want to delete this store?')) {
                 stores.splice(index, 1);
-                localStorage.setItem('auckland_stores_v5', JSON.stringify(stores));
+                await syncToCloud();
                 renderStores();
             }
         }
@@ -425,7 +484,7 @@
             document.getElementById('routeModal').classList.add('hidden');
         }
 
-        renderStores();
+        initApp();
     </script>
 </body>
 </html>
