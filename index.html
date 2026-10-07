@@ -272,7 +272,6 @@
             renderStores();
         }
 
-        // 백그라운드 동기화 (로딩창 없이 조용히 반영됨)
         async function syncToCloud() {
             if (!WEB_APP_URL || WEB_APP_URL === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") return;
             try {
@@ -372,7 +371,6 @@
             renderStores();
         }
 
-        // 검색창에 'reset' 입력 시 비밀번호 확인 후 구글 시트 초기화 기능
         document.getElementById('searchInput').addEventListener('input', async (e) => {
             const value = e.target.value;
             if (value.trim().toLowerCase() === 'reset') {
@@ -455,16 +453,16 @@
             }
 
             closeModal();
-            renderStores(); // 화면 즉시 반영
-            await syncToCloud(); // 구글 시트 백그라운드 동기화
+            renderStores();
+            await syncToCloud();
         }
 
         async function deleteStore(index) {
             if (!verifyAdmin()) return;
             if (confirm('Are you sure you want to delete this store?')) {
                 stores.splice(index, 1);
-                renderStores(); // 화면 즉시 반영
-                await syncToCloud(); // 구글 시트 백그라운드 동기화
+                renderStores();
+                await syncToCloud();
             }
         }
 
