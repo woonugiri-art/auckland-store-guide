@@ -107,12 +107,15 @@
                     <textarea id="formNote" rows="2" placeholder="e.g. Front parking / Easy access" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
                 </div>
                 
-                <!-- Multiple Photo Upload & Reordering Section -->
+                <!-- Google Drive Image Links Section -->
                 <div class="mb-6">
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Map / Route Photos (Multiple selectable)</label>
-                    <input type="file" id="formFileImages" multiple accept="image/*" onchange="handleFilesSelect(event)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none mb-2">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Google Drive Image Links</label>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="formDriveLinkInput" placeholder="구글 드라이브 공유 링크를 입력하세요" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button type="button" onclick="addDriveImageLink()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition">Add Link</button>
+                    </div>
                     <div id="imagePreviewContainer" class="flex flex-wrap gap-2 min-h-[50px] p-2 bg-slate-50 border border-dashed border-slate-300 rounded-lg">
-                        <span class="text-xs text-slate-400 italic self-center">No images selected yet.</span>
+                        <span class="text-xs text-slate-400 italic self-center">No images added yet.</span>
                     </div>
                 </div>
 
@@ -174,7 +177,7 @@
         let stores = [];
         let currentBrand = 'all';
         let searchQuery = '';
-        let activeEditImages = []; // 현재 편집 중인 매장의 이미지 목록 배열
+        let activeEditImages = []; // 현재 편집 중인 매장의 이미지 링크 목록 배열
 
         function getBadgeColor(brand) {
             switch(brand) {
@@ -345,7 +348,7 @@
             document.getElementById('formContactPerson').value = '';
             document.getElementById('formPhone').value = '';
             document.getElementById('formNote').value = '';
-            document.getElementById('formFileImages').value = '';
+            document.getElementById('formDriveLinkInput').value = '';
             activeEditImages = [];
             renderImagePreviews();
             document.getElementById('storeModal').classList.remove('hidden');
@@ -363,7 +366,7 @@
             document.getElementById('formContactPerson').value = store.contactPerson || '';
             document.getElementById('formPhone').value = store.phone || '';
             document.getElementById('formNote').value = store.note;
-            document.getElementById('formFileImages').value = '';
+            document.getElementById('formDriveLinkInput').value = '';
             activeEditImages = store.mapImages ? [...store.mapImages] : [];
             renderImagePreviews();
             document.getElementById('storeModal').classList.remove('hidden');
@@ -375,19 +378,34 @@
             document.getElementById('storeModal').classList.add('hidden');
         }
 
-        // 파일 선택 시 읽어서 배열에 추가
-        function handleFilesSelect(event) {
-            const files = event.target.files;
-            if (!files || files.length === 0) return;
+        // 구글 드라이브 링크를 웹에서 바로 뜨는 이미지 주소로 자동 변환
+        function convertDriveLink(url) {
+            if (!url) return '';
+            url = url.trim();
+            const matchFileD = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+            if (matchFileD && matchFileD[1]) {
+                return `https://lh3.googleusercontent.com/d/${matchFileD[1]}`;
+            }
+            const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+            if (matchId && matchId[1]) {
+                return `https://lh3.googleusercontent.com/d/${matchId[1]}`;
+            }
+            return url;
+        }
 
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    activeEditImages.push(e.target.result);
-                    renderImagePreviews();
-                }
-                reader.readAsDataURL(file);
-            });
+        function addDriveImageLink() {
+            const input = document.getElementById('formDriveLinkInput');
+            const rawUrl = input.value;
+            const convertedUrl = convertDriveLink(rawUrl);
+            
+            if (!convertedUrl) {
+                alert('올바른 링크를 입력해주세요.');
+                return;
+            }
+
+            activeEditImages.push(convertedUrl);
+            input.value = '';
+            renderImagePreviews();
         }
 
         function renderImagePreviews() {
@@ -395,7 +413,7 @@
             container.innerHTML = '';
 
             if (activeEditImages.length === 0) {
-                container.innerHTML = '<span class="text-xs text-slate-400 italic self-center">No images selected yet.</span>';
+                container.innerHTML = '<span class="text-xs text-slate-400 italic self-center">No images added yet.</span>';
                 return;
             }
 
@@ -403,7 +421,7 @@
                 const item = document.createElement('div');
                 item.className = "relative bg-white border border-slate-200 rounded-lg p-1.5 flex flex-col items-center shadow-sm w-24 shrink-0";
                 item.innerHTML = `
-                    <img src="${imgUrl}" class="w-20 h-16 object-cover rounded mb-1 bg-slate-100">
+                    <img src="${imgUrl}" class="w-20 h-16 object-cover rounded mb-1 bg-slate-100" onerror="this.src='https://via.placeholder.com/80?text=Invalid+Link'">
                     <div class="flex items-center justify-between w-full text-xs">
                         <button type="button" onclick="moveImage(${idx}, -1)" class="px-1 py-0.5 bg-slate-100 hover:bg-slate-200 rounded text-slate-700" title="Move Left">◀</button>
                         <button type="button" onclick="removeImage(${idx})" class="px-1.5 py-0.5 bg-red-50 hover:bg-red-100 text-red-600 rounded font-bold" title="Delete">✕</button>
@@ -480,7 +498,7 @@
             if (store.mapImages && store.mapImages.length > 0) {
                 htmlContent += '<div class="mt-3"><strong class="block mb-2">🗺️ Attached Map / Route Images:</strong><div class="grid grid-cols-2 gap-2">';
                 store.mapImages.forEach((img, i) => {
-                    htmlContent += `<div class="border rounded-lg p-1 bg-white shadow-xs"><img src="${img}" class="w-full h-32 object-cover rounded mb-1" /><span class="block text-center text-xs text-slate-400">Photo #${i+1}</span></div>`;
+                    htmlContent += `<div class="border rounded-lg p-1 bg-white shadow-xs"><img src="${img}" class="w-full h-32 object-cover rounded mb-1" onerror="this.src='https://via.placeholder.com/150?text=Invalid+Image'" /><span class="block text-center text-xs text-slate-400">Photo #${i+1}</span></div>`;
                 });
                 htmlContent += '</div></div>';
             } else {
